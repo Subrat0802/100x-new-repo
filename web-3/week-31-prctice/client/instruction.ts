@@ -1,7 +1,7 @@
 import * as borsh from "borsh";
 
 export class CounterAccount {
-    count = 0;
+    count: number;
 
     constructor({count}: {count: number}){
         this.count = count;
@@ -14,6 +14,3 @@ export const COUNTER_SIZE = borsh.serialize(
     schema,
     new CounterAccount({count:0})
 ).length
-
-
-console.log(borsh.serialize(schema, new CounterAccount({count: 1})));
