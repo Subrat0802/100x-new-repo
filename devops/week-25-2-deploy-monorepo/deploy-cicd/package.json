@@ -1,5 +1,5 @@
 {
-  "name": "test-deployment",
+  "name": "deploy-cicd",
   "private": true,
   "scripts": {
     "build": "turbo run build",
