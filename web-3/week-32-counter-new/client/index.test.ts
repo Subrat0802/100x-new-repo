@@ -10,14 +10,11 @@ const programId = new PublicKey("BwKwPHxhdHXNoxGei2aDFAqhWQ4PhrZKyNxPns7JobMv");
 const connection = new Connection("http://localhost:8899", "confirmed");
 
 test("counter does init", async () => {
-
     const res = await connection.requestAirdrop(adminAccount.publicKey, 1 * LAMPORTS_PER_SOL);
     await connection.confirmTransaction(res);
-
     const balance = await connection.getBalance(adminAccount.publicKey);
-
     const lamports = await connection.getMinimumBalanceForRentExemption(GREETING_SIZE);
-
+    
     const createCounterAcc = SystemProgram.createAccount({
         fromPubkey: adminAccount.publicKey,
         lamports,
@@ -27,7 +24,6 @@ test("counter does init", async () => {
     })
 
     const tx = new Transaction().add(createCounterAcc);
-
     const txhash = await connection.sendTransaction(tx, [adminAccount, counterAccount]);
     await connection.confirmTransaction(txhash);
 
@@ -38,5 +34,4 @@ test("counter does init", async () => {
     const counter = borsh.deserialize(schema, counterAccountInfo?.data) as counterAccountt;
     console.log(counter.count);
     expect(counter.count).toBe(0);
-
 })
