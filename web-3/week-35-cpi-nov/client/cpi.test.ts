@@ -1,76 +1,67 @@
-import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction, type Signer } from "@solana/web3.js";
 import {test, expect} from "bun:test";
 import { LiteSVM } from "litesvm";
+import {Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction} from "@solana/web3.js"
 
-test("CPI work as expect", async () => {
+test("Cpi work as expect", async () => {
     let svm = new LiteSVM();
-
-    //init accounts 
-    const doubleContrcat = PublicKey.unique();
+    const doubleContract = PublicKey.unique();
     const cpiContract = PublicKey.unique();
+    svm.addProgramFromFile(doubleContract, "./cpidouble.so");
+    svm.addProgramFromFile(cpiContract, "./invoke_con.so");
 
-    //contract so file with pub key
-    svm.addProgramFromFile(doubleContrcat, "./cpidouble.so");
-    svm.addProgramFromFile(cpiContract, "./cpi-double-invoke.so");
+    let userAcc = new Keypair();
+    let dataAcc = new Keypair();
+    svm.airdrop(userAcc.publicKey, BigInt(1000_000_000));
+    
+    createDataAccountOnChain(svm, userAcc, dataAcc, doubleContract);
 
-    //init user account
-    let userAccount = new Keypair();
+    function doubleIt() {
+        let ix = new TransactionInstruction({
+            keys:[
+                    {pubkey: dataAcc.publicKey, isSigner:true, isWritable: true},
+                    {pubkey: doubleContract, isSigner:false, isWritable: true}
+                ],
+            programId: cpiContract,
+            data: Buffer.from("")
+        })
 
-    //init data account 
-    let dataAccount = new Keypair();
+        const blockhash = svm.latestBlockhash();
+        let trx = new Transaction();
+        trx.recentBlockhash = blockhash
+        trx.add(ix);
+        trx.sign(userAcc, dataAcc);
+        svm.sendTransaction(trx);
+        svm.expireBlockhash();
+    }
 
-    //airdrop some sol to user
-    svm.airdrop(userAccount.publicKey, BigInt(1000_000_000));
 
-    //this will create data account on blockchain
-    createDataAccountOnChain(svm, dataAccount, userAccount, doubleContrcat);
+    doubleIt();
+    doubleIt();
+    doubleIt();
 
-    //after creating data account on chain ->>>>
-
-    const ix = new TransactionInstruction({
-      keys: [
-        { pubkey: dataAccount.publicKey, isSigner: true, isWritable: true },
-        { pubkey: doubleContrcat, isSigner: false, isWritable: false },
-      ],
-      programId: cpiContract,
-      data: Buffer.from(""),
-    });
-
-    const blockhash2 = svm.latestBlockhash();
-    const tx = new Transaction().add(ix);;
-    tx.recentBlockhash = blockhash2;
-    tx.feePayer = userAccount.publicKey;
-    tx.sign(userAccount, dataAccount);
-
-    const res = svm.sendTransaction(tx);
-    console.log(res.toString());
-
-    const dataAccountData = svm.getAccount(dataAccount.publicKey);
-
-    expect(dataAccountData?.data[0]).toBe(1);
-    expect(dataAccountData?.data[1]).toBe(0);
-    expect(dataAccountData?.data[2]).toBe(0);
-    expect(dataAccountData?.data[3]).toBe(0);
+    const dataAccData = svm.getAccount(dataAcc.publicKey);
+    expect(dataAccData?.data[0]).toBe(4);
+    expect(dataAccData?.data[1]).toBe(0);
+    expect(dataAccData?.data[2]).toBe(0);
+    expect(dataAccData?.data[3]).toBe(0);
 
 })
 
+function createDataAccountOnChain(svm: LiteSVM, userAcc: Keypair, dataAcc: Keypair, doubleContract: PublicKey){
+    const blockhash = svm.latestBlockhash();
+    const ixs = [
+        SystemProgram.createAccount({
+            fromPubkey: userAcc.publicKey,
+            newAccountPubkey: dataAcc.publicKey,
+            lamports: Number(svm.minimumBalanceForRentExemption(BigInt(4))),
+            space: 4,
+            programId: doubleContract
+        })
+    ]
 
-function createDataAccountOnChain(svm: LiteSVM, dataAccount: Keypair | Signer, userAccount: Keypair | Signer, doubleContrcat: PublicKey) {
-  const blockhash = svm.latestBlockhash();
-
-  const ixs = [
-    SystemProgram.createAccount({
-      fromPubkey: userAccount.publicKey,
-      newAccountPubkey: dataAccount.publicKey,
-      lamports: Number(svm.minimumBalanceForRentExemption(BigInt(4))),
-      programId: doubleContrcat,
-      space: 4,
-    }),
-  ];
-
-  const tx = new Transaction();
-  tx.recentBlockhash = blockhash;
-  tx.add(...ixs);
-  tx.sign(userAccount, dataAccount);
-  svm.sendTransaction(tx);
+    const tx = new Transaction();
+	tx.recentBlockhash = blockhash;
+	tx.add(...ixs);
+    tx.sign(userAcc, dataAcc);
+	svm.sendTransaction(tx);
 }
