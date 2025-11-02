@@ -23,8 +23,7 @@ async function main() {
     tx.sign(kp);
 
     await conn.sendTransaction(tx, [kp, dataAccount]);
-
-    console.log(dataAccount.publicKey.toBase58());
+    console.log(dataAccount.publicKey.toBase58()); 
 }
 
 main();
